@@ -1,3 +1,13 @@
+/*
+   Arduino 74xx Series Quad 2-Input Logic Gate Tester
+   Supports: 7400(NAND), 7402(NOR), 7408(AND), 7432(OR), 7486(XOR), 74266(XNOR)
+   Hardware: Arduino Nano/Uno (ATmega328P) + 14-pin ZIF socket + SSD1306 128x64 I2C OLED
+
+   Author: Your Name
+   Year:   2025
+   License: MIT
+*/
+
 #include "U8glib.h"
 U8GLIB_SSD1306_128X64 u8g(U8G_I2C_OPT_NONE); // OLED display initialization
 
