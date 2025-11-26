@@ -2,15 +2,6 @@
 
 A simple, low-cost IC tester capable of automatically identifying and verifying the four logic gates inside common 14-pin 74xx series logic ICs:
 
-- 7400  – Quad 2-input NAND  
-- 7402  – Quad 2-input NOR  
-- 7408  – Quad 2-input AND  
-- 7432  – Quad 2-input OR  
-- 7486  – Quad 2-input XOR  
-- 74266 – Quad 2-input XNOR (open-collector, tested as XNOR)
-
-The tester also detects faulty gates and completely dead/missing ICs.
-
 ## Hardware
 - Arduino Nano or Uno (ATmega328P)
 - 14-pin ZIF socket (or regular turned-pin socket)
@@ -28,14 +19,14 @@ The tester also detects faulty gates and completely dead/missing ICs.
 ## Supported ICs & Pinout
 All tested and verified
 
-| IC     | Name                  | Pins used for testing |
-|--------|------------------------|-----------------------|
-| 7400   | Quad 2-input NAND      | Standard 14-pin layout |
-| 7402   | Quad 2-input NOR       | Standard 14-pin layout |
-| 7408   | Quad 2-input AND       | Standard 14-pin layout |
-| 7432   | Quad 2-input OR        | Standard 14-pin layout |
-| 7486   | Quad 2-input XOR       | Standard 14-pin layout |
-| 74266  | Quad 2-input XNOR (open collector) | Detected as XNOR |
+| IC     | Name                  |
+|--------|------------------------|
+| 7400   | Quad 2-input NAND      |
+| 7402   | Quad 2-input NOR       |
+| 7408   | Quad 2-input AND       |
+| 7432   | Quad 2-input OR        |
+| 7486   | Quad 2-input XOR       |
+| 74266  | Quad 2-input XNOR (open collector) |
 
 All of these ICs share the same standard 74xx quad gate pinout (see image below):
 
