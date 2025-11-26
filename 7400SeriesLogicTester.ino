@@ -3,8 +3,8 @@
    Supports: 7400(NAND), 7402(NOR), 7408(AND), 7432(OR), 7486(XOR), 74266(XNOR)
    Hardware: Arduino Nano/Uno (ATmega328P) + 14-pin ZIF socket + SSD1306 128x64 I2C OLED
 
-   Author: Your Name
-   Year:   2025
+   Author: Alfred Gabriel
+   Year:   2023
    License: MIT
 */
 
