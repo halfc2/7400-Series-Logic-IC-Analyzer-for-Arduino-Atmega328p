@@ -43,22 +43,24 @@ All of these ICs share the same standard 74xx quad gate pinout (see image below)
 
 ### Exact Wiring Table
 
-| 74xx IC Pin | Arduino Pin               | Colour in diagram | Notes                              |
-|-------------|---------------------------|-------------------|------------------------------------|
-| 1           | D2                        | Green             | MODE 1: Input → Output driver      |
-| 2           | D3                        | Green             | Constant driver group              |
-| 3           | D3                        | Green             | Shared with pin 2                  |
-| 4           | D4                        | Orange            | MODE 1: Output read                |
-| 5           | D5                        | Orange            |                                    |
-| 6           | D6                        | Green             | Constant driver group              |
-| 7           | GND                       | Black             |                                    |
-| 8           | D11                       | Yellow            | MODE 2/3 driver                    |
-| 9           | D9                        | Green             | Constant driver group              |
-| 10          | D10                       | Green             | MODE 1: Input → Output driver      |
-| 11          | D8                        | Orange            |                                    |
-| 12          | D12                       | Green             | Constant driver group              |
-| 13          | D13                       | Green             | MODE 1: Input → Output driver      |
-| 14          | +5V/VCC (connect to 5V supply)                  | Red               |                                    |
+<img width="1411" height="274" alt="image" src="https://github.com/user-attachments/assets/55aa5379-c985-409d-9337-a18a3a711f99" />
+
+| 74xx IC Pin | Arduino Pin               | Notes                              |
+|-------------|---------------------------|--------------------------------------------|
+| 1           | D2                        | MODE 1: Input → MODE 2: Output             |
+| 2           | D3                        | Constant driver group                      |
+| 3           | D4                        | MODE 1: Output → MODE 2: Input             |
+| 4           | D5                        | MODE 1: Input → MODE 2: Output             |
+| 5           | D6                        | Constant driver group                      |
+| 6           | D7                        | MODE 1: Output → MODE 2: Input             |
+| **7**       | **GND**                   | **Connect to Ground**                      |
+| 8           | D8                        | MODE 1: Output → MODE 2: Input             |
+| 9           | D9                        | Constant driver group                      |
+| 10          | D10                       | MODE 1: Input → MODE 2: Output             |
+| 11          | D11                       | MODE 1: Output → MODE 2: Input             |
+| 12          | D12                       | Constant driver group                      |
+| 13          | D13                       | MODE 1: Input → MODE 2: Output             |
+| **14**      | **+5V/VCC**               | **Connect to 5V supply**                   |
 
 ### Additional Connections
 | Purpose             | Arduino Pin | Device       | Notes                                                    |
@@ -68,10 +70,8 @@ All of these ICs share the same standard 74xx quad gate pinout (see image below)
 | Test / Retest Button| A3          | Push button  | One side to A3, other side to 5V (or GND + pull-up/down) |
 
 ### Summary of Arduino Digital Pins Used
-D2, D3, D4, D5, D6, D8, D9, D10, D11, D12, D13  
+D2, D3, D4, D5, D6, D7, D8, D9, D10, D11, D12, D13  
 + A3 (button), A4 & A5 (I2C for display)
-
-<img width="1411" height="274" alt="image" src="https://github.com/user-attachments/assets/55aa5379-c985-409d-9337-a18a3a711f99" />
 
 ## Display Options – Use Whatever You Want
 The original build uses a cheap 128×64 SSD1306 I2C OLED, but the display part is 100% modular to the code.
@@ -81,3 +81,6 @@ Important variables that contain the result (updated in real time):
 String printState        // will contain the relevant code to your display of choice
 String printICType       // e.g. "7408 - AND" or "MIXED / BAD" or "INSERT IC"
 String printLogicType[4] // "OK" or "BAD" for each of the four gates
+
+## Additional Notes
+This code is old and has not been properly crosschecked with the original prototype, but i still decided to upload it for archiving. I do hope you know what you are doing and make sense of it.
