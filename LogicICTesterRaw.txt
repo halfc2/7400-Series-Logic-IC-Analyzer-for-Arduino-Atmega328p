@@ -1,0 +1,271 @@
+#include "U8glib.h"
+U8GLIB_SSD1306_128X64 u8g(U8G_I2C_OPT_NONE);
+
+bool testDone = false;
+bool badGateDetected = false;
+int noGateScore = 0;
+
+int retestPin = A3;
+const int constPins[4] = { 3, 6, 9, 12 };
+int mode1Pins[4] = { 2, 5, 10, 13 };
+int mode2Pins[4] = { 4, 7, 8, 11 };
+int mode3OPins[4] = { 2, 7, 8, 13 };
+int mode3IPins[4] = { 4, 5, 10, 11 };
+
+int outputPin1[4] = { 0, 0, 0, 0 };
+int outputPin2[4] = { 0, 0, 0, 0 };
+int inputPin[4] = { 0, 0, 0, 0 };
+
+int gateState[4] = { 0, 0, 0, 0 };
+int logicType[4] = { 0, 0, 0, 0 };
+
+bool gateTT[4] = { false, false, false, false };
+bool gateTF[4] = { false, false, false, false };
+bool gateFT[4] = { false, false, false, false };
+bool gateFF[4] = { false, false, false, false };
+
+String printLogicType[4] = { "", "", "", "" };
+String printICType = "INSERT IC";
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(retestPin, INPUT);
+  for (int i = 0; i < 4; i++) {
+    pinMode(constPins[i], OUTPUT);
+  }
+}
+
+void loop() {
+
+  if (digitalRead(retestPin) == HIGH) {
+    testDone = false;
+    badGateDetected = false;
+    noGateScore = 0;
+    printICType = "INSERT IC";
+    logicType[0] = 0;
+    logicType[1] = 0;
+    logicType[2] = 0;
+    logicType[3] = 0;
+  }
+
+  if (testDone == false) {
+    MODE1();
+    getGateState();
+    checkBadGates();
+    checkGateType();
+    checkGateDetectedScore();
+
+    if (badGateDetected == true && noGateScore == 4) {
+      noGateScore = 0;
+      badGateDetected = false;
+      Serial.println(F("Testing for NOR..."));
+      MODE2();
+      getGateState();
+      checkBadGates();
+      checkGateType();
+      checkGateDetectedScore();
+
+      if (badGateDetected == true && noGateScore == 4 || (logicType[1] == 6 || logicType[2] == 6)) {
+        noGateScore = 0;
+        badGateDetected = false;
+        Serial.println(F("Testing for XNOR..."));
+        MODE2();
+        getGateState();
+        checkBadGates();
+        checkGateType();
+      }
+    }
+    Serial.println(F("Checking Gate Type..."));
+    printBadGates();
+    checkICType();
+    printState();
+    delay(500);
+  }
+  testDone = true;
+}
+
+void MODE1() {
+  for (int i = 0; i < 4; i++) {
+    pinMode(mode1Pins[i], OUTPUT);
+    pinMode(mode2Pins[i], INPUT);
+    outputPin1[i] = constPins[i];
+    outputPin2[i] = mode1Pins[i];
+    inputPin[i] = mode2Pins[i];
+  }
+}
+
+void MODE2() {
+  for (int i = 0; i < 4; i++) {
+    pinMode(mode2Pins[i], OUTPUT);
+    pinMode(mode1Pins[i], INPUT);
+    outputPin1[i] = constPins[i];
+    outputPin2[i] = mode2Pins[i];
+    inputPin[i] = mode1Pins[i];
+  }
+}
+
+void MODE3() {
+  for (int i = 0; i < 4; i++) {
+    pinMode(mode3OPins[i], OUTPUT);
+    pinMode(mode3IPins[i], INPUT);
+    outputPin1[i] = constPins[i];
+    outputPin2[i] = mode3OPins[i];
+    inputPin[i] = mode3IPins[i];
+  }
+}
+
+void checkGateType() {
+  for (int i = 0; i < 4; i++) {
+    if (gateTT[i] == true && gateTF[i] == false && gateFT[i] == false && gateFF[i] == false) {
+      Serial.println(F("AND GATE "));
+      logicType[i] = 1;
+    } else if (gateTT[i] == true && gateTF[i] == true && gateFT[i] == true && gateFF[i] == false) {
+      Serial.println(F("OR GATE "));
+      logicType[i] = 2;
+    } else if (gateTT[i] == false && gateTF[i] == true && gateFT[i] == true && gateFF[i] == true) {
+      Serial.println(F("NAND GATE "));
+      logicType[i] = 3;
+    } else if (gateTT[i] == false && gateTF[i] == true && gateFT[i] == true && gateFF[i] == false) {
+      Serial.println(F("XOR GATE "));
+      logicType[i] = 4;
+    } else if (gateTT[i] == false && gateTF[i] == false && gateFT[i] == false && gateFF[i] == true) {
+      Serial.println(F("NOR GATE "));
+      logicType[i] = 5;
+    } else if (gateTT[i] == true && gateTF[i] == false && gateFT[i] == false && gateFF[i] == true) {
+      Serial.println(F("XNOR GATE "));
+      logicType[i] = 6;
+    } else {
+      Serial.println(F("Bad Gate Detected "));
+      logicType[i] = 0;
+    }
+  }
+}
+
+void getGateState() {
+  for (int i = 0; i < 4; i++) {
+    digitalWrite(outputPin1[i], HIGH);
+    digitalWrite(outputPin2[i], HIGH);
+    gateState[i] = digitalRead(inputPin[i]);
+    if (gateState[i] == HIGH) {
+      gateTT[i] = true;
+    } else {
+      gateTT[i] = false;
+    }
+  }
+
+  for (int i = 0; i < 4; i++) {
+    digitalWrite(outputPin1[i], HIGH);
+    digitalWrite(outputPin2[i], LOW);
+    gateState[i] = digitalRead(inputPin[i]);
+    if (gateState[i] == HIGH) {
+      gateTF[i] = true;
+    } else {
+      gateTF[i] = false;
+    }
+  }
+
+  for (int i = 0; i < 4; i++) {
+    digitalWrite(outputPin1[i], LOW);
+    digitalWrite(outputPin2[i], HIGH);
+    gateState[i] = digitalRead(inputPin[i]);
+    if (gateState[i] == HIGH) {
+      gateFT[i] = true;
+    } else {
+      gateFT[i] = false;
+    }
+  }
+
+  for (int i = 0; i < 4; i++) {
+    digitalWrite(outputPin1[i], LOW);
+    digitalWrite(outputPin2[i], LOW);
+    gateState[i] = digitalRead(inputPin[i]);
+    if (gateState[i] == HIGH) {
+      gateFF[i] = true;
+    } else {
+      gateFF[i] = false;
+    }
+  }
+}
+
+void printState() {
+  u8g.firstPage();
+  do {
+    u8g.setFont(u8g_font_helvR08);
+    u8g.setPrintPos(1, 10);
+    u8g.print(F("IC TYPE: "));
+    u8g.setPrintPos(50, 10);
+    u8g.print(printICType);
+    u8g.setPrintPos(1, 20);
+    u8g.print(F("GATE 1: "));
+    u8g.setPrintPos(45, 20);
+    u8g.print(printLogicType[0]);
+    u8g.setPrintPos(1, 30);
+    u8g.print(F("GATE 2: "));
+    u8g.setPrintPos(45, 30);
+    u8g.print(printLogicType[1]);
+    u8g.setPrintPos(1, 40);
+    u8g.print(F("GATE 3: "));
+    u8g.setPrintPos(45, 40);
+    u8g.print(printLogicType[2]);
+    u8g.setPrintPos(1, 50);
+    u8g.print(F("GATE 4: "));
+    u8g.setPrintPos(45, 50);
+    u8g.print(printLogicType[3]);
+  } while (u8g.nextPage());
+}
+
+void printBadGates() {
+  for (int i = 0; i < 4; i++) {
+    if (logicType[i] == 0) {
+      printLogicType[i] = "BAD";
+    } else {
+      printLogicType[i] = "OK";
+    }
+  }
+}
+
+void checkBadGates() {
+  for (int i = 0; i < 4; i++) {
+    if (logicType[i] == 0) {
+      badGateDetected = true;
+      break;
+    }
+  }
+}
+
+void checkGateDetectedScore() {
+  for (int i = 0; i < 4; i++) {
+    if (logicType[i] == 0) {
+      noGateScore++;
+    }
+  }
+  Serial.println(noGateScore);
+}
+
+void checkICType() {
+  for (int i = 0; i < 4; i++) {
+    if (logicType[i] == 0) {
+      continue;
+    }
+    switch (logicType[i]) {
+      case 1:
+        printICType = "7408 - AND";
+        break;
+      case 2:
+        printICType = "7432 - OR";
+        break;
+      case 3:
+        printICType = "7400 - NAND";
+        break;
+      case 4:
+        printICType = "7486 - XOR";
+        break;
+      case 5:
+        printICType = "7402 - NOR";
+        break;
+      case 6:
+        printICType = "74266 - XNOR";
+        break;
+    }
+  }
+}
