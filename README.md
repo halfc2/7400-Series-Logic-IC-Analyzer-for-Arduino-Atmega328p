@@ -67,6 +67,11 @@ D2, D3, D4, D5, D6, D7, D8, D9, D10, D11, D12, D13
 ## Display Options – Use Whatever You Want
 The original build uses a cheap 128×64 SSD1306 I2C OLED, but the display part is 100% modular to the code.
 
+<img width="1536" height="2048" alt="341173550_482118784041452_1334334247702279110_n" src="https://github.com/user-attachments/assets/6ad3ce43-cc4f-4c96-9527-ac22b4ab981b" />
+<img width="1536" height="2048" alt="341536091_1247677392528572_4611233756336318294_n" src="https://github.com/user-attachments/assets/a21ad2de-8fbe-4632-bc42-7cc7136c96ec" />
+<img width="1536" height="2048" alt="341486075_1259055075022379_7262883640451404711_n" src="https://github.com/user-attachments/assets/e21705e3-37ea-4df3-a842-e35d16f12c78" />
+
+
 ## Additional Notes
 This code is old and has not been properly crosschecked with the original prototype, but i still decided to upload it for archiving. I do hope you know what you are doing and make sense of it.
 
