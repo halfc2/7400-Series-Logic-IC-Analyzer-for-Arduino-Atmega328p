@@ -43,22 +43,22 @@ All of these ICs share the same standard 74xx quad gate pinout (see image below)
 
 ### Exact Wiring Table
 
-| 74xx IC Pin | Function (on IC)        | Connected to Arduino Pin  | Colour in diagram | Notes                              |
-|-------------|-------------------------|---------------------------|-------------------|------------------------------------|
-| 1           | Input A (Gate 1)        | D2                        | Green             | MODE 1: Input → Output driver      |
-| 2           | Input B (Gate 1)        | D3                        | Green             | Constant driver group              |
-| 3           | Input A (Gate 2)        | D3                        | Green             | Shared with pin 2                  |
-| 4           | Output (Gate 1)         | D4                        | Orange            | MODE 1: Output read                |
-| 5           | Output (Gate 2)         | D5                        | Orange            |                                    |
-| 6           | Input B (Gate 2)        | D6                        | Green             | Constant driver group              |
-| 7           | GND                     | GND                       | Black             |                                    |
-| 8           | Output (Gate 4)         | D11                       | Yellow            | MODE 2/3 driver                    |
-| 9           | Input B (Gate 4)        | D9                        | Green             | Constant driver group              |
-| 10          | Input A (Gate 3)        | D10                       | Green             | MODE 1: Input → Output driver      |
-| 11          | Output (Gate 3)         | D8                        | Orange            |                                    |
-| 12          | Input B (Gate 3) + A (4)| D12                       | Green             | Constant driver group              |
-| 13          | Input A (Gate 4)        | D13                       | Green             | MODE 1: Input → Output driver      |
-| 14          | VCC                     | +5V                       | Red               |                                    |
+| 74xx IC Pin | Arduino Pin               | Colour in diagram | Notes                              |
+|-------------|---------------------------|-------------------|------------------------------------|
+| 1           | D2                        | Green             | MODE 1: Input → Output driver      |
+| 2           | D3                        | Green             | Constant driver group              |
+| 3           | D3                        | Green             | Shared with pin 2                  |
+| 4           | D4                        | Orange            | MODE 1: Output read                |
+| 5           | D5                        | Orange            |                                    |
+| 6           | D6                        | Green             | Constant driver group              |
+| 7           | GND                       | Black             |                                    |
+| 8           | D11                       | Yellow            | MODE 2/3 driver                    |
+| 9           | D9                        | Green             | Constant driver group              |
+| 10          | D10                       | Green             | MODE 1: Input → Output driver      |
+| 11          | D8                        | Orange            |                                    |
+| 12          | D12                       | Green             | Constant driver group              |
+| 13          | D13                       | Green             | MODE 1: Input → Output driver      |
+| 14          | +5V/VCC (connect to 5V supply)                  | Red               |                                    |
 
 ### Additional Connections
 | Purpose             | Arduino Pin | Device       | Notes                                                    |
