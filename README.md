@@ -67,11 +67,11 @@ D2, D3, D4, D5, D6, D7, D8, D9, D10, D11, D12, D13
 ## Display Options – Use Whatever You Want
 The original build uses a cheap 128×64 SSD1306 I2C OLED, but the display part is 100% modular to the code.
 
+## Additional Notes
+This code is old and has not been properly crosschecked with the original prototype, but i still decided to upload it for archiving. I do hope you know what you are doing and make sense of it.
+
 Important variables that contain the result (updated in real time):
 ```cpp
 String printState        // will contain the relevant code to your display of choice
 String printICType       // e.g. "7408 - AND" or "MIXED / BAD" or "INSERT IC"
 String printLogicType[4] // "OK" or "BAD" for each of the four gates
-
-## Additional Notes
-This code is old and has not been properly crosschecked with the original prototype, but i still decided to upload it for archiving. I do hope you know what you are doing and make sense of it.
