@@ -9,130 +9,121 @@
 */
 
 #include "U8glib.h"
+U8GLIB_SSD1306_128X64 u8g(U8G_I2C_OPT_NONE);  // I2C OLED, no special options
 
-// OLED display (I2C, no special options needed)
-U8GLIB_SSD1306_128X64 u8g(U8G_I2C_OPT_NONE);
+// =====================================================================
+// Global state flags
+// =====================================================================
+bool testDone = false;          // Becomes true after one full test → prevents re-testing until reset
+bool badGateDetected = false;   // True if at least one gate didn't match any known logic function
+int noGateScore = 0;            // Counts how many gates were unrecognized in current test mode
 
-// ------------------------------------------------------------------
-// Global state variables
-// ------------------------------------------------------------------
-bool testDone           = false;  // Prevents re-testing until IC is removed/re-inserted
-bool badGateDetected    = false;  // At least one gate did not match any known truth table
-int  noGateScore        = 0;      // Counts how many gates returned "unknown" in current mode
-
-// Optional manual re-test button on A3 (pull-down resistor recommended)
-const int retestPin = A3;
-
-// ------------------------------------------------------------------
-// Arduino → 74xx pin mapping (hard-wired in hardware!)
-// ------------------------------------------------------------------
-const int constPins[4] = { 3, 6, 9, 12 };   // Always used as one of the drivers (shared across gates)
-
-// MODE 1 – drives the "left" inputs, reads the "right" outputs
-int mode1Pins[4] = { 2, 5, 10, 13 };
-
-// MODE 2 – drives the "right" inputs, reads the "left" outputs (used for NOR/XNOR detection)
-int mode2Pins[4] = { 4, 7, 8, 11 };
-
-// MODE 3 – currently unused in final logic but kept for possible future extensions
-int mode3OPins[4] = { 2, 7, 8, 13 };
+// =====================================================================
+// Pin assignments – MUST match your physical wiring!
+// =====================================================================
+int retestPin = A3;                             // Pull A3 high (button to 5V) to force new test
+const int constPins[4] = { 3, 6, 9, 12 };       // Always used as output drivers (shared inputs)
+int mode1Pins[4] = { 2, 5, 10, 13 };             // Left-side pins – used as outputs in MODE1
+int mode2Pins[4] = { 4, 7, 8, 11 };              // Right-side pins – used as outputs in MODE2
+int mode3OPins[4] = { 2, 7, 8, 13 };             // Not used in final logic but kept for completeness
 int mode3IPins[4] = { 4, 5, 10, 11 };
 
-// Runtime arrays – filled by the active MODE functions
-int outputPin1[4] = {0};   // First driver pin for current mode
-int outputPin2[4] = {0};   // Second driver pin for current mode
-int inputPin[4]   = {0};   // Pin where we read the gate output
+// Runtime pin mapping – filled by MODE1/MODE2/MODE3
+int outputPin1[4] = { 0, 0, 0, 0 };  // Driver pin A for current mode
+int outputPin2[4] = { 0, 0, 0, 0 };  // Driver pin B for current mode
+int inputPin[4]   = { 0, 0, 0, 0 };  // Pin where we read the gate output
 
-// Truth-table results for each gate (True = HIGH observed)
-bool gateTT[4] = {false};  // 11
-bool gateTF[4] = {false};  // 10
-bool gateFT[4] = {false};  // 01
-bool gateFF[4] = {false};  // 00
+// =====================================================================
+// Truth table results for each of the 4 gates
+// =====================================================================
+bool gateTT[4] = { false, false, false, false };  // Input 11 → output ?
+bool gateTF[4] = { false, false, false, false };  // Input 10 → output ?
+bool gateFT[4] = { false, false, false, false };  // Input 01 → output ?
+bool gateFF[4] = { false, false, false, false };  // Input 00 → output ?
 
-// Detected logic type per gate (0 = unknown/bad)
-int logicType[4] = {0, 0, 0, 0};
+int logicType[4] = { 0, 0, 0, 0 };  // 0=bad/unknown, 1=AND, 2=OR, 3=NAND, 4=XOR, 5=NOR, 6=XNOR
 
-/*
-   Logic type codes used in the original project:
-   1 = AND
-   2 = OR
-   3 = NAND
-   4 = XOR
-   5 = NOR
-   6 = XNOR
-   0 = Bad / unknown
-*/
-String printLogicType[4] = {"", "", "", ""};
-String printICType = "INSERT IC";
+// =====================================================================
+// Display strings
+// =====================================================================
+String printLogicType[4] = { "", "", "", "" };  // "OK" or "OK" or "BAD" shown on OLED
+String printICType = "INSERT IC";               // Final detected IC model
 
-// ------------------------------------------------------------------
+// =====================================================================
 // Setup
-// ------------------------------------------------------------------
-void setup()
-{
+// =====================================================================
+void setup() {
   Serial.begin(9600);
-
-  pinMode(retestPin, INPUT);                     // Button to force a new test
+  pinMode(retestPin, INPUT);                    // No pull-up needed if button connects to 5V
   for (int i = 0; i < 4; i++) {
-    pinMode(constPins[i], OUTPUT);               // These pins are always outputs
-    digitalWrite(constPins[i], LOW);             // Start low to avoid floating
+    pinMode(constPins[i], OUTPUT);              // These pins are always outputs
+    digitalWrite(constPins[i], LOW);            // Start low – prevents floating inputs
   }
 }
 
-// ------------------------------------------------------------------
+// =====================================================================
 // Main loop
-// ------------------------------------------------------------------
-void loop()
-{
-  // Pressing the re-test button (or pulling A3 high) resets everything
+// =====================================================================
+void loop() {
+  // Manual retest button – pulling A3 high resets everything
   if (digitalRead(retestPin) == HIGH) {
-    resetTestState();
+    testDone = false;
+    badGateDetected = false;
+    noGateScore = 0;
+    printICType = "INSERT IC";
+    logicType[0] = logicType[1] = logicType[2] = logicType[3] = 0;
   }
 
-  if (!testDone) {
-    // Start with the most common configuration
-    MODE1();
-    getGateState();            // Fill the 4 truth-table entries for each gate
-    checkBadGates();           // Sets badGateDetected flag
-    checkGateType();           // Try to recognise each gate
-    checkGateDetectedScore();  Count how many gates are still unknown
+  // Run test only once per insertion
+  if (testDone == false) {
 
-    // If every gate looks wrong in MODE1 → probably a NOR or XNOR IC
-    if (badGateDetected && noGateScore == 4) {
-      Serial.println(F("All gates unknown in MODE1 → trying MODE2 (NOR/XNOR test)"));
-      resetPerModeState();
-      MODE2();
+    // === First attempt: normal pinout (AND/OR/NAND/XOR) ===
+    MODE1();
+    getGateState();            // Fill truth tables
+    checkBadGates();           // Any gate completely wrong?
+    checkGateType();           // Try to recognize each gate
+    checkGateDetectedScore();  // How many gates still unknown?
+
+    // If ALL 4 gates failed → probably a NOR or XNOR IC (inverted logic)
+    if (badGateDetected == true && noGateScore == 4) {
+      noGateScore = 0;
+      badGateDetected = false;
+      Serial.println(F("Testing for NOR..."));
+
+      // Likely 7402"));
+      MODE2();                   // Drive the other set of inputs
       getGateState();
       checkBadGates();
       checkGateType();
       checkGateDetectedScore();
 
-      // Still everything unknown OR we already detected some NOR gates → try XNOR special case
-      if (badGateDetected && noGateScore == 4 || logicType[1] == 5 || logicType[2] == 5) {
-        Serial.println(F("Still unknown or NOR detected → trying XNOR test"));
-        resetPerModeState();
-        MODE2();                 // MODE2 again is intentional in original code
+      // Still all bad OR we already saw some XNOR behavior → try XNOR special case
+      if (badGateDetected == true && noGateScore == 4 || logicType[1] == 6 || logicType[2] == 6) {
+        noGateScore = 0;
+        badGateDetected = false;
+        Serial.println(F("Testing for XNOR...     // Likely 74266"));
+        MODE2();                 // Yes, MODE2 again – intentional in original algorithm
         getGateState();
         checkBadGates();
         checkGateType();
       }
     }
 
-    Serial.println(F("Final evaluation..."));
-    printBadGates();             // "OK" or "BAD" on OLED
-    checkICType();               // Decide which 74xx model it is
-    printState();                // Update OLED
+    // Final steps
+    Serial.println(F("Checking Gate Type..."));
+    printBadGates();           // Convert logicType → "OK"/"BAD" for display
+    checkICType();             // Decide which 74xx model it is
+    printState();              // Update OLED
     delay(500);
   }
 
-  testDone = true;               // Wait for removal or button press
+  testDone = true;  // Wait for removal or button press
 }
 
-// ------------------------------------------------------------------
-// Mode configuration functions
-// ------------------------------------------------------------------
-void MODE1()
-{
+// =====================================================================
+// Mode configuration – sets which pins drive vs read
+// =====================================================================
+void MODE1() {
   for (int i = 0; i < 4; i++) {
     pinMode(mode1Pins[i], OUTPUT);
     pinMode(mode2Pins[i], INPUT);
@@ -142,8 +133,7 @@ void MODE1()
   }
 }
 
-void MODE2()
-{
+void MODE2() {
   for (int i = 0; i < 4; i++) {
     pinMode(mode2Pins[i], OUTPUT);
     pinMode(mode1Pins[i], INPUT);
@@ -153,9 +143,7 @@ void MODE2()
   }
 }
 
-// Not used in current algorithm but kept for completeness
-void MODE3()
-{
+void MODE3() {  // Currently unused but kept in case of future expansion
   for (int i = 0; i < 4; i++) {
     pinMode(mode3OPins[i], OUTPUT);
     pinMode(mode3IPins[i], INPUT);
@@ -165,50 +153,49 @@ void MODE3()
   }
 }
 
-// ------------------------------------------------------------------
-// Truth table acquisition
-// ------------------------------------------------------------------
-void getGateState()
-{
-  // Reset truth table flags
-  for (int i = 0; i < 4; i++) {
-    gateTT[i] = gateTF[i] = gateFT[i] = gateFF[i] = false;
-  }
+// =====================================================================
+// Truth table acquisition – tests all 4 input combinations
+// =====================================================================
+void getGateState() {
+  // Reset previous results
+  memset(gateTT, 0, sizeof(gateTT));
+  memset(gateTF, 0, sizeof(gateTF));
+  memset(gateFT, 0, sizeof(gateFT));
+  memset(gateFF, 0, sizeof(gateFF));
 
   // 11
   for (int i = 0; i < 4; i++) {
     digitalWrite(outputPin1[i], HIGH);
     digitalWrite(outputPin2[i], HIGH);
-    gateTT[i] = (digitalRead(inputPin[i]) == HIGH);
+    gateTT[i] = digitalRead(inputPin[i]);
   }
 
   // 10
   for (int i = 0; i < 4; i++) {
     digitalWrite(outputPin1[i], HIGH);
     digitalWrite(outputPin2[i], LOW);
-    gateTF[i] = (digitalRead(inputPin[i]) == HIGH);
+    gateTF[i] = digitalRead(inputPin[i]);
   }
 
   // 01
   for (int i = 0; i < 4; i++) {
     digitalWrite(outputPin1[i], LOW);
     digitalWrite(outputPin2[i], HIGH);
-    gateFT[i] = (digitalRead(inputPin[i]) == HIGH);
+    gateFT[i] = digitalRead(inputPin[i]);
   }
 
   // 00
   for (int i = 0; i < 4; i++) {
     digitalWrite(outputPin1[i], LOW);
     digitalWrite(outputPin2[i], LOW);
-    gateFF[i] = (digitalRead(inputPin[i]) == HIGH);
+    gateFF[i] = digitalRead(inputPin[i]);
   }
 }
 
-// ------------------------------------------------------------------
-// Gate recognition
-// ------------------------------------------------------------------
-void checkGateType()
-{
+// =====================================================================
+// Gate recognition based on truth table
+// =====================================================================
+void checkGateType() {
   for (int i = 0; i < 4; i++) {
     if      (gateTT[i] && !gateTF[i] && !gateFT[i] && !gateFF[i]) logicType[i] = 1; // AND
     else if (gateTT[i] &&  gateTF[i] &&  gateFT[i] && !gateFF[i]) logicType[i] = 2; // OR
@@ -216,99 +203,14 @@ void checkGateType()
     else if (!gateTT[i] && gateTF[i] && gateFT[i] && !gateFF[i]) logicType[i] = 4; // XOR
     else if (!gateTT[i] && !gateTF[i] && !gateFT[i] && gateFF[i]) logicType[i] = 5; // NOR
     else if (gateTT[i] && !gateTF[i] && !gateFT[i] && gateFF[i]) logicType[i] = 6; // XNOR
-    else                                                        logicType[i] = 0; // Bad / unknown
+    else                                                        logicType[i] = 0; // Bad/unknown
   }
 }
 
-// ------------------------------------------------------------------
-// Helper functions
-// ------------------------------------------------------------------
-void resetTestState()
-{
-  testDone = false;
-  badGateDetected = false;
-  noGateScore = 0;
-  printICType = "INSERT IC";
-  for (int i = 0; i < 4; i++) logicType[i] = 0;
-}
-
-void resetPerModeState()
-{
-  badGateDetected = false;
-  noGateScore = 0;
-  for (int i = 0; i < 4; i++) {
-    gateTT[i] = gateTF[i] = gateFT[i] = gateFF[i] = false;
-    logicType[i] = 0;
-  }
-}
-
-void checkBadGates()
-{
-  badGateDetected = false;
-  for (int i = 0; i < 4; i++) {
-    if (logicType[i] == 0) {
-      badGateDetected = true;
-      break;
-    }
-  }
-}
-
-void checkGateDetectedScore()
-{
-  noGateScore = 0;
-  for (int i = 0; i < 4; i++) {
-    if (logicType[i] == 0) noGateScore++;
-  }
-  Serial.print(F("noGateScore = "));
-  Serial.println(noGateScore);
-}
-
-void printBadGates()
-{
-  for (int i = 0; i < 4; i++) {
-    printLogicType[i] = (logicType[i] == 0) ? "BAD" : "OK";
-  }
-}
-
-void checkICType()
-{
-  // Reset to default
-  printICType = "UNKNOWN";
-
-  // All gates must agree on the same type (ignore bad gates)
-  int firstValidType = -1;
-  bool consistent = true;
-
-  for (int i = 0; i < 4; i++) {
-    if (logicType[i] == 0) continue;           // skip bad gates
-    if (firstValidType == -1) {
-      firstValidType = logicType[i];
-    } else if (logicType[i] != firstValidType) {
-      consistent = false;
-    }
-  }
-
-  if (!consistent || firstValidType == -1) {
-    printICType = "MIXED / BAD";
-    return;
-  }
-
-  switch (firstValidType) {
-    case 1: printICType = "7408 - AND";      break;
-    case 2: printICType = "7432 - OR";       break;
-    case 3: printICType = "7400 - NAND";      break;
-    case 4: printICType = "7486 - XOR";      break;
-    case 5: printICType = "7402 - NOR";      break;
-    case 6: printICType = "74266 - XNOR";    break;
-  // open-collector version
-  }
-}
-
-// ------------------------------------------------------------------
-// OLED output
-// ------------------------------------------------------------------
-void printState()
-{
+// =====================================================================
+// OLED display update
+// =====================================================================
+void printState() {
   u8g.firstPage();
   do {
     u8g.setFont(u8g_font_helvR08);
@@ -317,24 +219,62 @@ void printState()
     u8g.setPrintPos(50, 10);
     u8g.print(printICType);
 
-    u8g.setPrintPos(1, 20);
-    u8g.print(F("GATE 1: "));
-    u8g.setPrintPos(45, 20);
-    u8g.print(printLogicType[0]);
-
-    u8g.setPrintPos(1, 30);
-    u8g.print(F("GATE 2: "));
-    u8g.setPrintPos(45, 30);
-    u8g.print(printLogicType[1]);
-
-    u8g.setPrintPos(1, 40);
-    u8g.print(F("GATE 3: "));
-    u8g.setPrintPos(45, 40);
-    u8g.print(printLogicType[2]);
-
-    u8g.setPrintPos(1, 50);
-    u8g.print(F("GATE 4: "));
-    u8g.setPrintPos(45, 50);
-    u8g.print(printLogicType[3]);
+    u8g.setPrintPos(1, 20); u8g.print(F("GATE 1: ")); u8g.setPrintPos(45, 20); u8g.print(printLogicType[0]);
+    u8g.setPrintPos(1, 30); u8g.print(F("GATE 2: ")); u8g.setPrintPos(45, 30); u8g.print(printLogicType[1]);
+    u8g.setPrintPos(1, 40); u8g.print(F("GATE 3: ")); u8g.setPrintPos(45, 40); u8g.print(printLogicType[2]);
+    u8g.setPrintPos(1, 50); u8g.print(F("GATE 4: ")); u8g.setPrintPos(45, 50); u8g.print(printLogicType[3]);
   } while (u8g.nextPage());
+}
+
+// =====================================================================
+// Helper functions
+// =====================================================================
+void printBadGates() {
+  for (int i = 0; i < 4; i++) {
+    printLogicType[i] = (logicType[i] == 0) ? "BAD" : "OK";
+  }
+}
+
+void checkBadGates() {
+  badGateDetected = false;
+  // reset flag
+  for (int i = 0; i < 4; i++) {
+    if (logicType[i] == 0) {
+      badGateDetected = true;
+      break;
+    }
+  }
+}
+
+void checkGateDetectedScore() {
+  noGateScore = 0;
+  for (int i = 0; i < 4; i++) {
+    if (logicType[i] == 0) noGateScore++;
+  }
+  Serial.println(noGateScore);
+}
+
+void checkICType() {
+  printICType = "";  // clear previous
+
+  int foundType =  = 0;
+  for (int i = 0; i < 4; i++) {
+    if (logicType[i] != 0) {
+      if (foundType == 0) foundType = logicType[i];           // remember first good gate
+      else if (logicType[i] != foundType) foundType = -1;     // mixed → invalid
+    }
+  }
+
+  if (foundType > 0) {
+    switch (foundType) {
+      case 1: printICType = "7408 - AND";   break;
+      case 2: printICType = "7432 - OR";    break;
+      case 3: printICType = "7400 - NAND";  break;
+      case 4: printICType = "7486 - XOR";   break;
+      case 5: printICType = "7402 - NOR";   break;
+      case 6: printICType = "74266 - XNOR"; break;
+    }
+  } else {
+    printICType = "UNKNOWN / BAD";
+  }
 }
