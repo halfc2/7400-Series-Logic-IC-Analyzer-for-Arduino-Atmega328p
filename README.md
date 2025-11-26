@@ -38,6 +38,7 @@ All tested and verified
 | 74266  | Quad 2-input XNOR (open collector) | Detected as XNOR |
 
 All of these ICs share the same standard 74xx quad gate pinout (see image below):
+
 <img width="375" height="447" alt="image" src="https://github.com/user-attachments/assets/3da43595-df11-4259-b8e1-97483a09a746" />
 
 # Arduino 74xx Series Quad Logic Gate IC Tester
