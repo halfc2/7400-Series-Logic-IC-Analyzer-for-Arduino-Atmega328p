@@ -73,7 +73,7 @@ The original build uses a cheap 128×64 SSD1306 I2C OLED, but the display part i
 
 
 ## Additional Notes
-This code is old and has not been properly crosschecked with the original prototype, but i still decided to upload it for archiving. I do hope you know what you are doing and make sense of it.
+This code is old and has not been properly crosschecked with the original prototype, but i still decided to upload it for archiving. I do hope you know what you are doing and make sense of it. try the raw txt file code if nothing works.
 
 Important variables that contain the result (updated in real time):
 ```cpp
