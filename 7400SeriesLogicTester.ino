@@ -86,12 +86,12 @@ void loop() {
       checkGateType();          // Determine gate types
       checkGateDetectedScore(); // Count undetected gates
 
-      // If still having issues, try mode 2 again for XNOR detection
+      // If still having issues, try mode 3 for XNOR detection
       if (badGateDetected == true && noGateScore == 4 || (logicType[1] == 6 || logicType[2] == 6)) {
         noGateScore = 0;
         badGateDetected = false;
         Serial.println(F("Testing for XNOR..."));
-        MODE2();                  // Configure pins for mode 2
+        MODE3();                  // Configure pins for mode 2
         getGateState();           // Test all input combinations
         checkBadGates();          // Check for faulty gates
         checkGateType();          // Determine gate types
@@ -134,7 +134,7 @@ void MODE2() {
   }
 }
 
-// Configure pins for mode 3 testing (not used in main loop)
+// Configure pins for mode 3 testing
 void MODE3() {
   for (int i = 0; i < 4; i++) {
     pinMode(mode3OPins[i], OUTPUT); // Set mode3 output pins as outputs
